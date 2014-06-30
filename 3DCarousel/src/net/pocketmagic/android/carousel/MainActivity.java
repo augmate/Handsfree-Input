@@ -26,25 +26,20 @@ package net.pocketmagic.android.carousel;
 import java.util.ArrayList;
 
 import android.os.Bundle;
+import android.os.Environment;
 import android.app.Activity;
-import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.Menu;
-import android.view.MenuItem;
 import android.view.View;
-import android.view.View.OnClickListener;
 import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
 import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
 import android.widget.AdapterView.OnItemSelectedListener;
-import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 import android.speech.tts.TextToSpeech;
 //import android.support.v4.app.NavUtils;
 import android.text.Editable;
@@ -54,10 +49,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 
-import com.google.android.glass.touchpad.Gesture;
-import com.google.android.glass.touchpad.GestureDetector;
-
-public class MainActivity extends Activity implements SensorEventListener, TextWatcher {
+public class MainActivity extends Activity implements OnItemSelectedListener, SensorEventListener, TextWatcher {
 	
 	Singleton 				m_Inst 					= Singleton.getInstance();
 	CarouselViewAdapter 	m_carouselAdapter		= null;	 
@@ -65,22 +57,16 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
     private TextToSpeech mSpeech;
 	
 	private int numDigits = 5;
-	private GestureDetector mGestureDetector;
 	private SensorManager mSensorManager;
-	private final int gyroSensitivity = 1;
 	private int gyroCount = 0;
 	private final int gyroThreshold = 5;
-	private float gyroX;
-	private float gyroY;
-	private final int indexMin = numDigits+1;
-	private final int indexMax = 2*numDigits;
-	private final int passwordLength = 4;
-	private int carouselIndex = indexMin;
 	private TextView userInputField;
 	private String userInput = "";
 	private boolean confirmFlag = false;
+	private CarouselDataItem currentItem;
 	
-    @Override
+    @SuppressWarnings("deprecation")
+	@Override
     public void onCreate(Bundle savedInstanceState) {
 	        super.onCreate(savedInstanceState);
 	        mSpeech = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
@@ -107,32 +93,21 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 		    
 		    // copy images from assets to sdcard
 		    for (int i = 1; i<=numDigits;i++)
-		    	AppUtils.AssetFileCopy(this, "/mnt/sdcard/number" +i+".png", "number"+i+".png", false);
+		    	AppUtils.AssetFileCopy(this, Environment.getExternalStorageDirectory().getPath().concat("/number" +i+".png"), "number"+i+".png", false);
 		    
 		    //Create carousel view documents. Each image is added to the carousel three times to give the illusion of a never ending wheel.
 		    ArrayList<CarouselDataItem> Docus = new ArrayList<CarouselDataItem>();
-		    for (int i=0;i<numDigits*3;i++) {
+		    for (int i=1;i<=numDigits;i++) {
 		    	CarouselDataItem docu;
-		        if (i%numDigits==0) docu = new CarouselDataItem("/mnt/sdcard/number5.png", 0, "First Image "+i);
-		       	else if (i%numDigits==1) docu = new CarouselDataItem("/mnt/sdcard/number1.png", 0, "Second Image "+i);
-		        else if (i%numDigits==2) docu = new CarouselDataItem("/mnt/sdcard/number2.png", 0, "Third Image "+i);
-		        else if (i%numDigits==3) docu = new CarouselDataItem("/mnt/sdcard/number3.png", 0, "Fourth Image "+i);
-		        else docu = new CarouselDataItem("/mnt/sdcard/number4.png", 0, "fifth Image "+i);
+		        if (i%numDigits==0) docu = new CarouselDataItem(Environment.getExternalStorageDirectory().getPath().concat("/number5.png"), 0, ""+i);
+		       	else if (i%numDigits==1) docu = new CarouselDataItem(Environment.getExternalStorageDirectory().getPath().concat("/number1.png"), 0, ""+i);
+		        else if (i%numDigits==2) docu = new CarouselDataItem(Environment.getExternalStorageDirectory().getPath().concat("/number2.png"), 0, ""+i);
+		        else if (i%numDigits==3) docu = new CarouselDataItem(Environment.getExternalStorageDirectory().getPath().concat("/number3.png"), 0, ""+i);
+		        else docu = new CarouselDataItem(Environment.getExternalStorageDirectory().getPath().concat("/number4.png"), 0, ""+i);
 		        Docus.add(docu);
 		    }
-		    /*
-		    // add the search filter
-		    EditText etSearch = new EditText(this);
-		    etSearch.setHint("Search your document");
-		    etSearch.setSingleLine();
-		    etSearch.setTextColor(Color.BLACK);
-		    etSearch.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_menu_search, 0, 0, 0);
-		    AppUtils.AddView(panel, etSearch, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 
-		    		new int[][]{new int[]{RelativeLayout.CENTER_HORIZONTAL}, new int[]{RelativeLayout.ALIGN_PARENT_TOP}}, -1,-1);
-		    etSearch.addTextChangedListener((TextWatcher) this);
-		    */
-		    //Entered numbers
 		    
+		    //Entered numbers
 		    userInputField = new TextView(this);
 		    userInputField.setTextColor(Color.BLACK);
 		    userInputField.setText("Move your head left or right to select a number. Nod to cofirm that number");
@@ -155,9 +130,10 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 		    m_carouselAdapter =  new CarouselViewAdapter(this,Docus, m_Inst.Scale(400),m_Inst.Scale(300));
 	        coverFlow.setAdapter(m_carouselAdapter);
 	        coverFlow.setSpacing(-1*m_Inst.Scale(150));
-	        coverFlow.setSelection((numDigits*3)/ 2, true);
+	        coverFlow.setSelection(Integer.MAX_VALUE / 2, true);
 	        coverFlow.setAnimationDuration(1000);
-	        //coverFlow.setOnItemSelectedListener((OnItemSelectedListener) this);
+	        coverFlow.setOnItemSelectedListener((OnItemSelectedListener) this);
+	        currentItem = (CarouselDataItem) m_carouselAdapter.getItem(Integer.MAX_VALUE / 2);
 	
 	        AppUtils.AddView(panel, coverFlow, LayoutParams.FILL_PARENT,LayoutParams.WRAP_CONTENT, 
 	        		new int[][]{new int[]{RelativeLayout.CENTER_IN_PARENT}},
@@ -165,7 +141,18 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 	        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 	        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
 	        mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_ORIENTATION), SensorManager.SENSOR_DELAY_UI);
-    	    mGestureDetector = createGestureDetector(this);
+    	    //mGestureDetector = createGestureDetector(this);
+    }
+    @Override
+    public void onDestroy(){
+    	mSpeech.shutdown();
+    	super.onDestroy();
+    }
+    
+    @Override
+    public void onOptionsMenuClosed(Menu menu) {
+    	super.onOptionsMenuClosed(menu);
+        finish();
     }
 
 	public void afterTextChanged(Editable arg0) {}
@@ -176,13 +163,11 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 		m_carouselAdapter.getFilter().filter(s.toString()); 
 	}
 
-	/*public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
-		 CarouselDataItem docu =  (CarouselDataItem) m_carouselAdapter.getItem((int) arg3);
-		 if (docu!=null)
-			 Toast.makeText(this, "You've clicked on:"+docu.getDocText(), Toast.LENGTH_SHORT).show();
+	public void onItemSelected(AdapterView<?> arg0, View arg1, int arg2, long arg3) {
+		 currentItem =  (CarouselDataItem) m_carouselAdapter.getItem((int) arg3);
 	}
 
-	public void onNothingSelected(AdapterView<?> arg0) {}*/
+	public void onNothingSelected(AdapterView<?> arg0) {}
 
 	public void onSensorChanged(SensorEvent event) {
 		gyroCount++;
@@ -200,54 +185,36 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 				confirmFlag = false;
 		}
 		*/
-		if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE && gyroCount > gyroThreshold)
-				processGyro(event.values[1], event.values[0]);
+		if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE && gyroCount > gyroThreshold && !mSpeech.isSpeaking()){
+			processGyro(event.values[1], event.values[0]);
+			gyroCount = 0;
+		}
 	}
 	
+	@SuppressWarnings("deprecation")
 	private void processGyro(double gyroX, double gyroY){
-		Log.d("yyy", "X:"+gyroX+" Y:"+gyroY+" INPUT:"+userInput);
-		if(gyroY < -1){  //nod
-			//Log.d("xxx", "X:"+event.values[1]+" Y:"+event.values[0] + " INPUT:"+userInput);
-			//coverFlow.setSelection(carouselIndex);
-			if(!confirmFlag){
-				confirmFlag  = true;
-				userInput=userInput.concat(Integer.toString(coverFlow.getSelectedItemPosition()-numDigits));
-				userInputField.setText(userInput);
-				mSpeech.speak(Integer.toString(carouselIndex-numDigits), TextToSpeech.QUEUE_FLUSH, null);
-			}
-			else if(confirmFlag)
-				confirmFlag = false;
+		if(gyroY < -1 && !confirmFlag){  //nod down
+			confirmFlag  = true;
+			userInput=userInput.concat(currentItem.m_szDocName);
+			userInputField.setText(userInput);
+			mSpeech.speak(currentItem.m_szDocName, TextToSpeech.QUEUE_FLUSH, null);
+			Log.d("yyy", "X:"+gyroX+" Y:"+gyroY+" INPUT:"+userInput);
 		}
-		else if(gyroX> 1){  //right
-			carouselIndex--;
-			if(carouselIndex<indexMin)
-				carouselIndex = indexMax;
-			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT, null);
-			//coverFlow.onKeyMultiple(KeyEvent.KEYCODE_DPAD_RIGHT,10, null);
+		else if(gyroY > 1 && !confirmFlag && userInput.length()>0){  //nod up
+			confirmFlag  = true;
+			userInput=userInput.substring(0, userInput.length()-1);
+			userInputField.setText(userInput);
+			mSpeech.speak("Delete", TextToSpeech.QUEUE_FLUSH, null);
 		}
-		else if(gyroX < -1){  //left
-			carouselIndex++;
-			if(carouselIndex>indexMax)
-				carouselIndex = indexMin;
+		else if(gyroX> 1)  //right
+			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT, null);		
+		else if(gyroX< -1)  //left
 			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_LEFT, null);
-		}	
-		//coverFlow.setSelection(carouselIndex, true);
-		gyroCount = 0;
+		
+		if(gyroY<1 && gyroY>-1)
+			confirmFlag = false;
 	}
 
 	public void onAccuracyChanged(Sensor sensor, int accuracy) {
-	}
-	
-	private GestureDetector createGestureDetector(Context context) {
-	    GestureDetector gestureDetector = new GestureDetector(context);
-	        gestureDetector.setBaseListener( new GestureDetector.BaseListener() {
-	            public boolean onGesture(Gesture gesture) {
-	                return false;
-	            }
-	        });
-	       return gestureDetector;
-    }
-
-
-    
+	}   
 }

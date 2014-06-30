@@ -148,7 +148,7 @@ import android.widget.Filter;
     	 Bitmap reflection = createReflectedImage(originalImage);
     	 if (originalImage != null)
     		 originalImage.recycle();
-    	 CarouselViewItem scaIv = new CarouselViewItem(mContext, reflection, mDocus.get(position).getDocText(), m_w, m_h);
+    	 CarouselViewItem scaIv = new CarouselViewItem(mContext, reflection, "", m_w, m_h);
      
          return scaIv;
      }
