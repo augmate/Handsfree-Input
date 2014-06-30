@@ -170,7 +170,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 	public void onNothingSelected(AdapterView<?> arg0) {}
 
 	public void onSensorChanged(SensorEvent event) {
-		gyroCount++;
+		//gyroCount++;
 		/*
 		if(event.sensor.getType() == Sensor.TYPE_ORIENTATION){ //X: Up=-179 Down=-1 Y:Left=181 Right=359
 			Log.d("xxx", "X:"+event.values[1]+" Y:"+event.values[0] + " INPUT:"+userInput);
@@ -185,7 +185,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 				confirmFlag = false;
 		}
 		*/
-		if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE && gyroCount > gyroThreshold && !mSpeech.isSpeaking()){
+		if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE && !mSpeech.isSpeaking()){
 			processGyro(event.values[1], event.values[0]);
 			gyroCount = 0;
 		}
