@@ -31,6 +31,7 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -44,14 +45,15 @@ import android.widget.EditText;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.speech.tts.TextToSpeech;
 //import android.support.v4.app.NavUtils;
 import android.text.Editable;
 import android.text.TextWatcher;
-
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+
 import com.google.android.glass.touchpad.Gesture;
 import com.google.android.glass.touchpad.GestureDetector;
 
@@ -60,14 +62,14 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 	Singleton 				m_Inst 					= Singleton.getInstance();
 	CarouselViewAdapter 	m_carouselAdapter		= null;	 
 	private CarouselView coverFlow = null;
+    private TextToSpeech mSpeech;
 	
 	private int numDigits = 5;
 	private GestureDetector mGestureDetector;
 	private SensorManager mSensorManager;
-	private boolean gyroActive = false;
-	private final int gyroSense = 120;
+	private final int gyroSensitivity = 1;
 	private int gyroCount = 0;
-	private final int gyroThreshold = 20;
+	private final int gyroThreshold = 5;
 	private float gyroX;
 	private float gyroY;
 	private final int indexMin = numDigits+1;
@@ -81,6 +83,11 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
     @Override
     public void onCreate(Bundle savedInstanceState) {
 	        super.onCreate(savedInstanceState);
+	        mSpeech = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+	            public void onInit(int status) {
+	                // Do nothing.
+	            }
+	        });
 			getWindow().setFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,  WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 	        
 	        //no keyboard unless requested by user
@@ -148,7 +155,7 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 		    m_carouselAdapter =  new CarouselViewAdapter(this,Docus, m_Inst.Scale(400),m_Inst.Scale(300));
 	        coverFlow.setAdapter(m_carouselAdapter);
 	        coverFlow.setSpacing(-1*m_Inst.Scale(150));
-	        coverFlow.setSelection(Integer.MAX_VALUE / 2, true);
+	        coverFlow.setSelection((numDigits*3)/ 2, true);
 	        coverFlow.setAnimationDuration(1000);
 	        //coverFlow.setOnItemSelectedListener((OnItemSelectedListener) this);
 	
@@ -179,51 +186,53 @@ public class MainActivity extends Activity implements SensorEventListener, TextW
 
 	public void onSensorChanged(SensorEvent event) {
 		gyroCount++;
+		/*
 		if(event.sensor.getType() == Sensor.TYPE_ORIENTATION){ //X: Up=-179 Down=-1 Y:Left=181 Right=359
 			Log.d("xxx", "X:"+event.values[1]+" Y:"+event.values[0] + " INPUT:"+userInput);
 			//coverFlow.setSelection(carouselIndex);
 			if(!confirmFlag && event.values[1]>-75){
 				confirmFlag  = true;
-				userInput=userInput.concat(Integer.toString(carouselIndex-numDigits));
+				userInput=userInput.concat(Integer.toString(coverFlow.getSelectedItemPosition()-numDigits));
 				userInputField.setText(userInput);
-				Log.d("yyy", userInput);
+				mSpeech.speak(Integer.toString(carouselIndex-numDigits), TextToSpeech.QUEUE_FLUSH, null);
 			}
 			else if(confirmFlag && event.values[1]<-75)
 				confirmFlag = false;
-			Log.d("yyy", userInput);
 		}
-		
-		
-		
-		
-		
-		if(!confirmFlag && event.sensor.getType() == Sensor.TYPE_GYROSCOPE)
-			//gyroX = event.values[1] + gryoX;
-			if (gyroCount > gyroThreshold)
-				{
-					gyroX = event.values[1] * gyroSense;
-					gyroY = event.values[0] * gyroSense;
-					//Log.d("yyy", "X:"+gyroX+" Y:"+gyroY);
-					if(gyroY < -gyroSense){  //nod
-						/*if(userInput.startsWith("Move"))
-							userInputField.setText("");
-						userInput.concat(Integer.toString(carouselIndex));
-						userInputField.setText(userInput);*/
-					}
-					else if(gyroX> gyroSense){  //right
-						carouselIndex++;
-						if(carouselIndex>indexMax)
-							carouselIndex = indexMin;
-					}
-					else if(gyroX < -gyroSense){  //left
-						carouselIndex--;
-						if(carouselIndex<indexMin)
-							carouselIndex = indexMax;
-					}
-					
-					coverFlow.setSelection(carouselIndex);
-					gyroCount = 0;
-				}
+		*/
+		if(event.sensor.getType() == Sensor.TYPE_GYROSCOPE && gyroCount > gyroThreshold)
+				processGyro(event.values[1], event.values[0]);
+	}
+	
+	private void processGyro(double gyroX, double gyroY){
+		Log.d("yyy", "X:"+gyroX+" Y:"+gyroY+" INPUT:"+userInput);
+		if(gyroY < -1){  //nod
+			//Log.d("xxx", "X:"+event.values[1]+" Y:"+event.values[0] + " INPUT:"+userInput);
+			//coverFlow.setSelection(carouselIndex);
+			if(!confirmFlag){
+				confirmFlag  = true;
+				userInput=userInput.concat(Integer.toString(coverFlow.getSelectedItemPosition()-numDigits));
+				userInputField.setText(userInput);
+				mSpeech.speak(Integer.toString(carouselIndex-numDigits), TextToSpeech.QUEUE_FLUSH, null);
+			}
+			else if(confirmFlag)
+				confirmFlag = false;
+		}
+		else if(gyroX> 1){  //right
+			carouselIndex--;
+			if(carouselIndex<indexMin)
+				carouselIndex = indexMax;
+			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT, null);
+			//coverFlow.onKeyMultiple(KeyEvent.KEYCODE_DPAD_RIGHT,10, null);
+		}
+		else if(gyroX < -1){  //left
+			carouselIndex++;
+			if(carouselIndex>indexMax)
+				carouselIndex = indexMin;
+			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_LEFT, null);
+		}	
+		//coverFlow.setSelection(carouselIndex, true);
+		gyroCount = 0;
 	}
 
 	public void onAccuracyChanged(Sensor sensor, int accuracy) {
