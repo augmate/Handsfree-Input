@@ -64,6 +64,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 	private String userInput = "";
 	private boolean confirmFlag = false;
 	private CarouselDataItem currentItem;
+	private int textColor = Color.WHITE; 
 	
     @SuppressWarnings("deprecation")
 	@Override
@@ -88,7 +89,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 		    panel.setLayoutParams(new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT));
 			panel.setPadding(padding, padding, padding, padding);
 		    panel.setBackgroundDrawable(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, 
-		    		new int[]{Color.WHITE, Color.GRAY}));
+		    		new int[]{Color.BLACK, Color.BLACK}));
 		    setContentView(panel); 
 		    
 		    // copy images from assets to sdcard
@@ -109,7 +110,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 		    
 		    //Entered numbers
 		    userInputField = new TextView(this);
-		    userInputField.setTextColor(Color.BLACK);
+		    userInputField.setTextColor(textColor);
 		    userInputField.setText("Move your head left or right to select a number. Nod to cofirm that number");
 		    userInputField.setTextSize(15);
 		    AppUtils.AddView(panel, userInputField, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 
@@ -117,7 +118,7 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 		
 		    // add logo
 		    TextView tv = new TextView(this);
-		    tv.setTextColor(Color.BLACK);
+		    tv.setTextColor(textColor);
 		    tv.setText("Augmate Login");
 		    AppUtils.AddView(panel, tv, LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT, 
 		    		new int[][]{new int[]{RelativeLayout.CENTER_HORIZONTAL}, new int[]{RelativeLayout.ALIGN_PARENT_BOTTOM}}, -1,-1);
@@ -127,13 +128,14 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 	        
 		    // create adapter and specify device independent items size (scaling)
 		    // for more details see: http://www.pocketmagic.net/2013/04/how-to-scale-an-android-ui-on-multiple-screens/
+		    int startValue = Integer.MAX_VALUE/2-(Integer.MAX_VALUE/2)%numDigits;
 		    m_carouselAdapter =  new CarouselViewAdapter(this,Docus, m_Inst.Scale(400),m_Inst.Scale(300));
 	        coverFlow.setAdapter(m_carouselAdapter);
 	        coverFlow.setSpacing(-1*m_Inst.Scale(150));
-	        coverFlow.setSelection(Integer.MAX_VALUE / 2, true);
+	        coverFlow.setSelection(startValue, true);
 	        coverFlow.setAnimationDuration(1000);
 	        coverFlow.setOnItemSelectedListener((OnItemSelectedListener) this);
-	        currentItem = (CarouselDataItem) m_carouselAdapter.getItem(Integer.MAX_VALUE / 2);
+	        currentItem = (CarouselDataItem) m_carouselAdapter.getItem(startValue);
 	
 	        AppUtils.AddView(panel, coverFlow, LayoutParams.FILL_PARENT,LayoutParams.WRAP_CONTENT, 
 	        		new int[][]{new int[]{RelativeLayout.CENTER_IN_PARENT}},
@@ -144,9 +146,26 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
     	    //mGestureDetector = createGestureDetector(this);
     }
     @Override
+    protected void onResume(){
+    	mSpeech = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            public void onInit(int status) {}});
+    	mSensorManager.registerListener(this, mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE),SensorManager.SENSOR_DELAY_UI);
+    	super.onResume();
+    }
+    @Override
     public void onDestroy(){
     	mSpeech.shutdown();
+    	mSensorManager.unregisterListener(this);
     	super.onDestroy();
+    }
+    
+    @Override
+    protected void onStop(){
+        if(mSpeech != null){
+        	mSpeech.shutdown();
+        	mSensorManager.unregisterListener(this);
+        }
+        super.onStop();
     }
     
     @Override
@@ -206,12 +225,12 @@ public class MainActivity extends Activity implements OnItemSelectedListener, Se
 			userInputField.setText(userInput);
 			mSpeech.speak("Delete", TextToSpeech.QUEUE_FLUSH, null);
 		}
-		else if(gyroX> 1)  //right
+		else if(gyroX< -1)  //right
 			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_RIGHT, null);		
-		else if(gyroX< -1)  //left
+		else if(gyroX> 1)  //left
 			coverFlow.onKeyDown(KeyEvent.KEYCODE_DPAD_LEFT, null);
 		
-		if(gyroY<1 && gyroY>-1)
+		if(gyroY<1 && gyroY>-1) //Head position is stable on the Y-axis
 			confirmFlag = false;
 	}
 
